@@ -1,0 +1,192 @@
+﻿@page "/inventario"
+@rendermode InteractiveServer
+@using Parcial2.Components.Data
+
+<PageTitle>Productos</PageTitle>
+
+<h3>Productos</h3>
+
+@if (!string.IsNullOrEmpty(errorMensaje))
+{
+    <div class="alert alert-danger" role="alert">
+        @errorMensaje
+    </div>
+}
+
+<EditForm Model="@productoEditando" OnValidSubmit="guardarProducto">
+    <DataAnnotationsValidator />
+    <div class="mb-3">
+        <label for="inventario" class="form-label">Inventario</label>
+        <InputNumber id="inventario" class="form-control" @bind-Value="@productoEditando.Inventario" />
+        <ValidationMessage For="@(() => productoEditando.Inventario)" />
+    </div>
+    <div class="mb-3">
+        <label for="nombre" class="form-label">Nombre</label>
+        <InputText id="nombre" class="form-control" @bind-Value="@productoEditando.Nombre" />
+        <ValidationMessage For="@(() => productoEditando.Nombre)" />
+    </div>
+    <div class="mb-3">
+        <label for="departamento" class="form-label">Departamento</label>
+        <select id="departamento" class="form-select" @bind="@productoEditando.Departamento">
+            <option value="">Seleccione un departamento</option>
+            <option value="Frutas">Frutas</option>
+            <option value="Verduras">Verduras</option>
+            <option value="Lacteos">Lácteos</option>
+        </select>
+        <ValidationMessage For="@(() => productoEditando.Departamento)" />
+    </div>
+    <button type="submit" class="btn btn-primary">@botonTexto</button>
+    @if (modoEdicion)
+    {
+        <button type="button" class="btn btn-primary" @onclick="cancelarEdicion">Cancelar</button>
+    }
+    <button type="button" class="btn btn-secondary" @onclick="alternarVista">
+        @(mostrarExistencias ? "Listado" : "Existencias")
+    </button>
+</EditForm>
+
+@if (mostrarExistencias)
+{
+    <div class="mt-3">
+        <h4>Existencias por departamento</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Frutas</th>
+                    <th>Verduras</th>
+                    <th>Lácteos</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>@conteoFrutas</td>
+                    <td>@conteoVerduras</td>
+                    <td>@conteoLacteos</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+}
+else if (listaMostrar.Count > 0)
+{
+    <div class="mt-3">
+        <h4>Listado de productos</h4>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>Inventario</th>
+                    <th>Nombre</th>
+                    <th>Departamento</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var prod in listaMostrar)
+                {
+                    <tr>
+                        <td>@prod.Inventario</td>
+                        <td>@prod.Nombre</td>
+                        <td>@prod.Departamento</td>
+                        <td>
+                            <button class="btn btn-warning btn-sm" @onclick="() => editarProducto(prod)">✏️</button>
+                            <button class="btn btn-danger btn-sm" @onclick="() => eliminarProducto(prod)">🗑️</button>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+}
+
+@code {
+    public Productos productoEditando = new Productos { Inventario = 0 };
+    public List<Productos> productos = new();
+    public List<Productos> listaMostrar = new();
+    public string? errorMensaje;
+    public bool modoEdicion = false;
+    public string botonTexto = "Guardar";
+    public bool mostrarExistencias = false;
+
+    // Contadores por departamento
+    public int conteoFrutas = 0;
+    public int conteoVerduras = 0;
+    public int conteoLacteos = 0;
+
+    public void guardarProducto()
+    {
+        if (!modoEdicion && productos.Any(p => p.Inventario == productoEditando.Inventario))
+        {
+            errorMensaje = "El número de inventario se encuentra registrado. Debe ser único.";
+            return;
+        }
+
+        errorMensaje = null;
+
+        if (modoEdicion)
+        {
+            var productoExistente = productos.FirstOrDefault(p => p.Inventario == productoEditando.Inventario);
+            if (productoExistente != null)
+            {
+                productoExistente.Nombre = productoEditando.Nombre;
+                productoExistente.Departamento = productoEditando.Departamento;
+            }
+            modoEdicion = false;
+            botonTexto = "Guardar";
+        }
+        else
+        {
+            productos.Add(new Productos
+            {
+                Nombre = productoEditando.Nombre,
+                Inventario = productoEditando.Inventario,
+                Departamento = productoEditando.Departamento
+            });
+        }
+
+        productoEditando = new Productos();
+        listaMostrar = productos;
+        actualizarConteos();
+    }
+
+    public void alternarVista()
+    {
+        mostrarExistencias = !mostrarExistencias;
+        if (mostrarExistencias)
+        {
+            actualizarConteos();
+        }
+    }
+
+    public void actualizarConteos()
+    {
+        conteoFrutas = productos.Count(p => p.Departamento == "Frutas");
+        conteoVerduras = productos.Count(p => p.Departamento == "Verduras");
+        conteoLacteos = productos.Count(p => p.Departamento == "Lacteos");
+    }
+
+    public void editarProducto(Productos prod)
+    {
+        productoEditando = new Productos
+        {
+            Inventario = prod.Inventario,
+            Nombre = prod.Nombre,
+            Departamento = prod.Departamento
+        };
+        modoEdicion = true;
+        botonTexto = "Actualizar";
+    }
+
+    public void cancelarEdicion()
+    {
+        productoEditando = new Productos();
+        modoEdicion = false;
+        botonTexto = "Guardar";
+    }
+
+    public void eliminarProducto(Productos prod)
+    {
+        productos.Remove(prod);
+        listaMostrar = productos;
+        actualizarConteos();
+    }
+}
